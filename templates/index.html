@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scholar Seek Search Engine</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="glow-bg"></div>
+
+    <div class="app-container">
+        <!-- Header Nav -->
+        <header class="navbar">
+            <div class="logo">
+                <i class="fa-solid fa-bolt-lightning logo-icon"></i>
+                <span class="logo-text">Scholar Seek <span class="highlight">Engine</span></span>
+                <span class="badge">A Lightweight Research Paper Search Engine</span>
+            </div>
+
+            <div class="stats-pills" id="statsPills">
+                <span class="pill"><i class="fa-regular fa-file-code"></i> <strong id="statDocs">0</strong> Docs</span>
+                <span class="pill"><i class="fa-solid fa-book"></i> <strong id="statTerms">0</strong> Terms</span>
+                <span class="pill"><i class="fa-solid fa-gauge-high"></i> <strong id="statAvgLen">0</strong> Avg Words</span>
+            </div>
+
+            <button class="btn-primary" id="btnOpenModal">
+                <i class="fa-solid fa-plus"></i> Add Document
+            </button>
+        </header>
+
+        <!-- Hero & Search Section -->
+        <main class="main-content">
+            <div class="hero-section" id="heroSection">
+                <h1 class="hero-title">Information Retrieval <span class="gradient-text">Engine</span></h1>
+                <p class="hero-subtitle">High-performance inverted indexing with TF-IDF and Okapi BM25 ranking algorithms.</p>
+            </div>
+
+            <!-- Search Form Box -->
+            <div class="search-box-wrapper">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Search data structures, AI, Flask, SQL, algorithms..." autocomplete="off">
+                    <button class="clear-btn" id="btnClearSearch" style="display:none;">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <button class="search-btn" id="btnSearch">Search</button>
+                </div>
+
+                <!-- Autocomplete Dropdown -->
+                <div class="autocomplete-dropdown" id="autocompleteDropdown" style="display: none;"></div>
+
+                <!-- Controls Toolbar -->
+                <div class="search-toolbar">
+                    <div class="algo-switch">
+                        <span class="algo-label">Algorithm:</span>
+                        <label class="radio-btn">
+                            <input type="radio" name="algorithm" value="tfidf" checked>
+                            <span>TF-IDF</span>
+                        </label>
+                        <label class="radio-btn">
+                            <input type="radio" name="algorithm" value="bm25">
+                            <span>BM25</span>
+                        </label>
+                    </div>
+
+                    <div class="quick-tags">
+                        <span class="tag-label">Quick Try:</span>
+                        <button class="quick-chip">data structures</button>
+                        <button class="quick-chip">machine learning</button>
+                        <button class="quick-chip">flask web</button>
+                        <button class="quick-chip">database sql</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Suggestion Alert -->
+            <div class="suggestion-banner" id="suggestionBanner" style="display: none;">
+                <i class="fa-solid fa-lightbulb"></i> Did you mean: <a href="#" id="suggestionLink"></a>?
+            </div>
+
+            <!-- Search Metrics Header -->
+            <div class="results-header" id="resultsHeader" style="display: none;">
+                <span class="results-count" id="resultsCount">Found 0 results</span>
+                <span class="results-time" id="resultsTime">(0.0 ms)</span>
+            </div>
+
+            <!-- Search Results Container -->
+            <div class="results-container" id="resultsContainer"></div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Built with Python, Flask & Vanilla CSS | B.Tech CSE Portfolio Project</p>
+        </footer>
+    </div>
+
+    <!-- Modal for Adding Custom Document -->
+    <div class="modal-overlay" id="addDocModal" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-circle-plus"></i> Index New Document</h3>
+                <button class="modal-close" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="addDocForm">
+                <div class="form-group">
+                    <label for="docTitle">Document Title</label>
+                    <input type="text" id="docTitle" placeholder="e.g. Graph Algorithms & Shortest Path" required>
+                </div>
+                <div class="form-group">
+                    <label for="docCategory">Category</label>
+                    <input type="text" id="docCategory" placeholder="e.g. Algorithms / CS" required>
+                </div>
+                <div class="form-group">
+                    <label for="docUrl">Source URL / Reference</label>
+                    <input type="url" id="docUrl" placeholder="https://example.com/article" value="#">
+                </div>
+                <div class="form-group">
+                    <label for="docContent">Content Body</label>
+                    <textarea id="docContent" rows="6" placeholder="Paste the raw document text to tokenize and index..." required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" id="btnCancelModal">Cancel</button>
+                    <button type="submit" class="btn-primary"><i class="fa-solid fa-gears"></i> Index Document</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
