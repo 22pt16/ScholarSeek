@@ -1,96 +1,119 @@
 """
-Pre-populated sample document corpus covering core Computer Science topics,
-Data Structures, Artificial Intelligence, Web Development, Databases, and Systems.
+Research-paper corpus for ScholarSeek.
+
+The corpus is designed for demonstrating information retrieval
+over research literature, with emphasis on AI and cybersecurity.
 """
 
 SAMPLE_CORPUS = [
     {
-        "id": "doc_01",
-        "title": "Data Structures and Algorithms Fundamentals",
-        "category": "Computer Science",
-        "url": "https://en.wikipedia.org/wiki/Data_structure",
+        "id": "paper_01",
+        "title": "Phishing Detection Leveraging Machine Learning and Deep Learning: A Review",
+        "category": "Cybersecurity",
+        "url": "https://arxiv.org/abs/2205.07411",
         "content": (
-            "A data structure is a specialized format for organizing, processing, retrieving, and storing data. "
-            "Fundamental data structures include arrays, linked lists, stacks, queues, hash tables, trees, and graphs. "
-            "Efficient algorithms utilize appropriate data structures to optimize time complexity (Big-O notation) "
-            "and space complexity during computation."
+            "Phishing attacks trick victims into disclosing sensitive information. "
+            "Machine learning and deep learning approaches can be used to detect "
+            "phishing attacks using different types of data and deployment strategies. "
+            "The study reviews machine learning models for phishing detection "
+            "and discusses their advantages and limitations."
         )
     },
+
     {
-        "id": "doc_02",
-        "title": "Introduction to Artificial Intelligence and Machine Learning",
-        "category": "AI & ML",
-        "url": "https://en.wikipedia.org/wiki/Artificial_intelligence",
+        "id": "paper_02",
+        "title": "Machine Learning for Detection and Mitigation of Web Vulnerabilities and Web Attacks",
+        "category": "Web Security",
+        "url": "https://arxiv.org/abs/2304.14451",
         "content": (
-            "Artificial Intelligence (AI) enables computer systems to perform tasks that human intelligence typically requires. "
-            "Machine learning is a subset of AI focusing on training statistical models on dataset vectors. "
-            "Key algorithms include linear regression, decision trees, random forests, neural networks, and deep learning architectures."
+            "Machine learning techniques have been applied to the detection and "
+            "mitigation of web vulnerabilities and attacks including cross-site "
+            "scripting and cross-site request forgery. The research explores "
+            "different machine learning approaches for identifying web attacks "
+            "and discusses challenges in detecting evolving vulnerabilities."
         )
     },
+
     {
-        "id": "doc_03",
-        "title": "Web Application Architecture with Python and Flask",
-        "category": "Web Development",
-        "url": "https://flask.palletsprojects.com/",
+        "id": "paper_03",
+        "title": "AlgoXSSF: Detection and Analysis of XSRF and XSS Attacks via Machine Learning Algorithms",
+        "category": "Web Security",
+        "url": "https://arxiv.org/abs/2402.01012",
         "content": (
-            "Flask is a lightweight WSGI web application framework in Python. "
-            "It is designed to make getting started quick and easy, with the ability to scale up to complex applications. "
-            "Flask provides routing, request handling, template rendering, and RESTful API endpoint integration for modern web development."
+            "Cross-site scripting and cross-site request forgery are important "
+            "web security threats. Machine learning and artificial intelligence "
+            "can be used to identify malicious patterns and improve automated "
+            "web attack detection. The proposed framework investigates machine "
+            "learning algorithms for detecting and analysing XSS and XSRF attacks."
         )
     },
+
     {
-        "id": "doc_04",
-        "title": "Relational Database Management Systems and SQL Queries",
-        "category": "Databases",
-        "url": "https://en.wikipedia.org/wiki/Relational_database",
+        "id": "paper_04",
+        "title": "Leveraging LLM to Strengthen ML-Based Cross-Site Scripting Detection",
+        "category": "Web Security",
+        "url": "https://arxiv.org/abs/2504.21045",
         "content": (
-            "A relational database management system (RDBMS) stores data in structured tables composed of rows and columns. "
-            "SQL (Structured Query Language) is used to query, insert, update, and manage relational database records. "
-            "Database normalization and B-tree indexing optimize query performance and data integrity."
+            "Cross-site scripting remains an important web security vulnerability. "
+            "Machine learning models can identify malicious XSS samples, but "
+            "obfuscated attacks can reduce detection performance. The study "
+            "investigates generating diverse obfuscated XSS samples to improve "
+            "machine learning based detection."
         )
     },
+
     {
-        "id": "doc_05",
-        "title": "Information Retrieval and Search Engine Architecture",
-        "category": "Information Retrieval",
-        "url": "https://en.wikipedia.org/wiki/Information_retrieval",
+        "id": "paper_05",
+        "title": "XGBoost: A Scalable Tree Boosting System",
+        "category": "Machine Learning",
+        "url": "https://arxiv.org/abs/1603.02754",
         "content": (
-            "Information retrieval (IR) is the activity of obtaining information system resources that are relevant to an information need. "
-            "Search engines build inverted indices to map document terms efficiently. Ranking algorithms like TF-IDF, "
-            "BM25, and Google PageRank rank search results based on query term frequency, document frequency, and hyperlink authority."
+            "XGBoost is a scalable tree boosting system designed for efficient "
+            "machine learning. The system introduces techniques including "
+            "sparsity-aware learning and weighted quantile sketching. Its design "
+            "allows gradient tree boosting to scale to large datasets."
         )
     },
+
     {
-        "id": "doc_06",
-        "title": "Operating Systems and Process Thread Management",
-        "category": "Systems",
-        "url": "https://en.wikipedia.org/wiki/Operating_system",
+        "id": "paper_06",
+        "title": "Email Summarization to Assist Users in Phishing Identification",
+        "category": "Cybersecurity",
+        "url": "https://arxiv.org/abs/2203.13380",
         "content": (
-            "An operating system (OS) manages computer hardware resources and provides common services for computer programs. "
-            "Key OS responsibilities include CPU scheduling, memory management, file systems, process synchronization, "
-            "inter-process communication (IPC), and handling virtual memory paging."
+            "Phishing emails can use sophisticated social engineering techniques "
+            "to deceive users. Machine learning and natural language processing "
+            "can analyse email content and assist users in identifying malicious "
+            "intent. The research investigates human-centric support for phishing "
+            "identification using email analysis and summarization."
         )
     },
+
     {
-        "id": "doc_07",
-        "title": "Object-Oriented Programming Principles in Java and C++",
-        "category": "Software Engineering",
-        "url": "https://en.wikipedia.org/wiki/Object-oriented_programming",
+        "id": "paper_07",
+        "title": "Deep Learning Based Intrusion Detection",
+        "category": "Network Security",
+        "url": "https://arxiv.org/",
         "content": (
-            "Object-Oriented Programming (OOP) is a programming paradigm based on the concept of objects which contain "
-            "data fields and code methods. The core OOP principles are Encapsulation, Abstraction, Inheritance, and Polymorphism. "
-            "Languages like Java, C++, and Python utilize OOP to design modular and reusable software systems."
+            "Intrusion detection systems identify suspicious or malicious activity "
+            "in computer networks. Deep learning models can learn representations "
+            "of network traffic and identify anomalous behaviour. Intrusion detection "
+            "research commonly evaluates classification accuracy, precision, recall "
+            "and false positive rates."
         )
     },
+
     {
-        "id": "doc_08",
-        "title": "Modern JavaScript Frameworks and Front-End UI Design",
-        "category": "Web Development",
-        "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
+        "id": "paper_08",
+        "title": "Machine Learning for Malware Detection",
+        "category": "Malware Analysis",
+        "url": "https://arxiv.org/",
         "content": (
-            "JavaScript is a high-level, just-in-time compiled programming language that powers dynamic client-side web applications. "
-            "Modern frontend frameworks such as React, Vue, and Angular enable declarative component-based UI rendering, "
-            "virtual DOM manipulation, asynchronous state management, and CSS glassmorphic aesthetic interfaces."
+            "Malware detection uses computational techniques to identify malicious "
+            "software and suspicious behaviour. Machine learning models can learn "
+            "patterns from executable files, system behaviour and network activity. "
+            "Feature extraction and classification are important components of "
+            "automated malware detection systems."
         )
     }
 ]

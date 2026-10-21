@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 import time
 import re
 from typing import Dict, List, Any, Optional
@@ -21,26 +23,69 @@ class SearchEngine:
         if load_sample_corpus:
             self._load_corpus()
 
-    def _load_corpus(self):
-        """Indexes initial sample corpus."""
+    
+def _load_corpus(self):
+    """Load research papers from JSONL, falling back to sample data."""
+    corpus_path = Path(__file__).with_name("scholarseek_corpus.jsonl")
+
+    if corpus_path.exists():
+        print(f"Loading research corpus from {corpus_path}...")
+
+        with corpus_path.open("r", encoding="utf-8") as file:
+            for line in file:
+                if not line.strip():
+                    continue
+
+                paper = json.loads(line)
+
+                self.index_document(
+                    doc_id=paper["id"],
+                    title=paper["title"],
+                    content=paper["abstract"],
+                    category=paper.get("category", "General"),
+                    url=paper.get("url", "#"),
+                    metadata=paper,
+                )
+
+        print(f"Loaded {self.index.total_documents:,} research papers.")
+
+    else:
+        print("Research corpus not found. Loading sample corpus.")
+
         for doc in SAMPLE_CORPUS:
             self.index_document(
                 doc_id=doc["id"],
                 title=doc["title"],
                 content=doc["content"],
                 category=doc.get("category", "General"),
-                url=doc.get("url", "#")
+                url=doc.get("url", "#"),
             )
 
-    def index_document(self, doc_id: str, title: str, content: str, category: str = "General", url: str = "#"):
-        """
-        Tokenizes and indexes a document.
-        """
-        full_text = f"{title} {content}"
-        tokens_with_pos = self.tokenizer.tokenize_with_positions(full_text)
-        self.index.add_document(doc_id, title, content, category, url, tokens_with_pos)
-        # Update spell checker vocabulary reference
-        self.spell_checker.vocabulary = self.index.vocabulary
+
+    
+def index_document(
+    self,
+    doc_id: str,
+    title: str,
+    content: str,
+    category: str = "General",
+    url: str = "#",
+    metadata: Optional[Dict[str, Any]] = None,
+):
+    """Tokenize and index a document while preserving its metadata."""
+    full_text = f"{title} {content}"
+    tokens_with_pos = self.tokenizer.tokenize_with_positions(full_text)
+
+    self.index.add_document(
+        doc_id, title, content, category, url, tokens_with_pos
+    )
+
+    # Preserve research-paper fields for display and future retrieval.
+    if metadata:
+        self.index.documents[doc_id].update(metadata)
+
+    # Keep the spell checker synchronized with the index vocabulary.
+    self.spell_checker.vocabulary = self.index.vocabulary
 
     def extract_snippet(self, content: str, query_terms: List[str], max_len: int = 180) -> str:
         """
@@ -112,7 +157,12 @@ class SearchEngine:
                 "category": doc_meta["category"],
                 "url": doc_meta["url"],
                 "score": score,
-                "term_scores": term_scores
+                "term_scores": term_scores,
+                "authors": doc_meta.get("authors", ""),
+                "year": doc_meta.get("year"),
+                "abstract": doc_meta.get("abstract", doc_meta["content"]),
+                "keywords": doc_meta.get("keywords", []),
+                "doi": doc_meta.get("doi"),
             })
 
         execution_time = (time.perf_counter() - start_time) * 1000.0
