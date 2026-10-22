@@ -9,6 +9,7 @@ from .inverted_index import InvertedIndex
 from .ranker import Ranker
 from .spell_check import SpellChecker
 from .corpus import SAMPLE_CORPUS
+from .semantic_search import SemanticSearcher
 
 
 class SearchEngine:
@@ -22,6 +23,7 @@ class SearchEngine:
         self.index = InvertedIndex()
         self.ranker = Ranker(self.index)
         self.spell_checker = SpellChecker(self.index.vocabulary)
+        self._semantic_searcher = None
 
         if load_sample_corpus:
             self._load_corpus()
@@ -92,6 +94,14 @@ class SearchEngine:
 
         # Ensure spell correction uses the completed vocabulary.
         self.spell_checker.vocabulary = self.index.vocabulary
+
+    def _get_semantic_searcher(self):
+        if self._semantic_searcher is None:
+            self._semantic_searcher = SemanticSearcher(
+                self.index.documents
+            )
+
+        return self._semantic_searcher
 
     def index_document(
         self,
@@ -210,10 +220,24 @@ class SearchEngine:
             }
 
         # Select the ranking algorithm.
-        if algorithm.lower() == "bm25":
-            ranked = self.ranker.rank_bm25(query_tokens)
-        else:
+        algorithm_name = algorithm.lower()
+
+        if algorithm_name == "tfidf":
             ranked = self.ranker.rank_tfidf(query_tokens)
+
+        elif algorithm_name == "bm25":
+            ranked = self.ranker.rank_bm25(query_tokens)
+
+        elif algorithm_name == "semantic":
+            ranked = self._get_semantic_searcher().search(
+                query,
+                top_k=max(top_k, 100),
+            )
+
+        else:
+            raise ValueError(
+                f"Unknown search algorithm: {algorithm}"
+            )
 
         results = []
 
