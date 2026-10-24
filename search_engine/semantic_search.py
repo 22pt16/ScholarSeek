@@ -1,9 +1,9 @@
 
 import hashlib
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 
 class SemanticSearcher:
@@ -35,8 +35,7 @@ class SemanticSearcher:
 
         self.model = None
         self.embeddings = None
-
-        self.fingerprint = self._make_fingerprint()
+        self.fingerprint: Optional[str] = None
 
         self._load_or_create_embeddings()
 
@@ -70,6 +69,7 @@ class SemanticSearcher:
     def _get_model(self):
         if self.model is None:
             print(f"Loading semantic model: {self.MODEL_NAME}")
+            from sentence_transformers import SentenceTransformer
             self.model = SentenceTransformer(self.MODEL_NAME)
 
         return self.model
@@ -81,18 +81,12 @@ class SemanticSearcher:
                     self.cache_path,
                     allow_pickle=False,
                 ) as cache:
-                    cached_fingerprint = str(
-                        cache["fingerprint"].item()
-                    )
-
                     cached_ids = cache["doc_ids"].tolist()
 
-                    if (
-                        cached_fingerprint == self.fingerprint
-                        and cached_ids == self.doc_ids
-                    ):
+                    if cached_ids == self.doc_ids:
                         self.embeddings = cache["embeddings"]
-
+                        if "fingerprint" in cache:
+                            self.fingerprint = str(cache["fingerprint"].item())
                         print(
                             "Loaded cached embeddings:",
                             self.embeddings.shape,
@@ -107,6 +101,7 @@ class SemanticSearcher:
             f"{len(self.texts):,} research papers..."
         )
 
+        self.fingerprint = self._make_fingerprint()
         model = self._get_model()
 
         self.embeddings = model.encode(

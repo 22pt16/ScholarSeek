@@ -37,5 +37,3 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Data cache
-search_engine/cache/
