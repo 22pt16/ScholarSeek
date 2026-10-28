@@ -11,29 +11,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const heroSection = document.getElementById('heroSection');
     const suggestionBanner = document.getElementById('suggestionBanner');
     const suggestionLink = document.getElementById('suggestionLink');
-    const expansionBanner = document.getElementById('expansionBanner');
-    const expansionTerms = document.getElementById('expansionTerms');
-    const chkExpand = document.getElementById('chkExpand');
 
     // Stats
     const statDocs = document.getElementById('statDocs');
     const statTerms = document.getElementById('statTerms');
     const statAvgLen = document.getElementById('statAvgLen');
 
-    // Add Document Modal
+    // Modal
     const addDocModal = document.getElementById('addDocModal');
     const btnOpenModal = document.getElementById('btnOpenModal');
     const btnCloseModal = document.getElementById('btnCloseModal');
     const btnCancelModal = document.getElementById('btnCancelModal');
     const addDocForm = document.getElementById('addDocForm');
-
-    // Evaluation Modal
-    const evalModal = document.getElementById('evalModal');
-    const btnOpenEval = document.getElementById('btnOpenEval');
-    const btnCloseEval = document.getElementById('btnCloseEval');
-    const btnCloseEval2 = document.getElementById('btnCloseEval2');
-    const btnRunEval = document.getElementById('btnRunEval');
-    const evalResults = document.getElementById('evalResults');
 
     // Debounce timer for autocomplete
     let debounceTimer = null;
@@ -70,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsContainer.innerHTML = '';
         resultsHeader.style.display = 'none';
         suggestionBanner.style.display = 'none';
-        expansionBanner.style.display = 'none';
         heroSection.style.display = 'block';
     });
 
@@ -103,12 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
     btnOpenModal.addEventListener('click', () => addDocModal.style.display = 'flex');
     btnCloseModal.addEventListener('click', () => addDocModal.style.display = 'none');
     btnCancelModal.addEventListener('click', () => addDocModal.style.display = 'none');
-
-    // Evaluation Modal Events
-    if (btnOpenEval) btnOpenEval.addEventListener('click', () => evalModal.style.display = 'flex');
-    if (btnCloseEval) btnCloseEval.addEventListener('click', () => evalModal.style.display = 'none');
-    if (btnCloseEval2) btnCloseEval2.addEventListener('click', () => evalModal.style.display = 'none');
-    if (btnRunEval) btnRunEval.addEventListener('click', runEvaluation);
 
     addDocForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -197,15 +179,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         hideAutocomplete();
         const selectedAlgo = document.querySelector('input[name="algorithm"]:checked').value;
-        const expand = chkExpand && chkExpand.checked ? 'true' : 'false';
 
         resultsContainer.innerHTML = '<div class="results-loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Searching index...</div>';
         resultsHeader.style.display = 'none';
         suggestionBanner.style.display = 'none';
-        if (expansionBanner) expansionBanner.style.display = 'none';
 
         try {
-            const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&algo=${selectedAlgo}&expand=${expand}`);
+            const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&algo=${selectedAlgo}`);
             const data = await res.json();
 
             heroSection.style.display = 'none';
@@ -226,16 +206,6 @@ document.addEventListener('DOMContentLoaded', () => {
             suggestionBanner.style.display = 'block';
         }
 
-        // Show query expansion terms if any.
-        if (expansionBanner && data.expanded_terms && data.expanded_terms.length > 0) {
-            expansionTerms.innerHTML = data.expanded_terms.map(t =>
-                `<span class="term-chip" style="background:rgba(139,92,246,0.15);color:#a78bfa;">${t}</span>`
-            ).join(' ');
-            expansionBanner.style.display = 'block';
-        } else if (expansionBanner) {
-            expansionBanner.style.display = 'none';
-        }
-
         if (data.results.length === 0) {
             resultsContainer.innerHTML = `
                 <div class="result-card" style="text-align: center; padding: 40px;">
@@ -254,14 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const pct = Math.min(100, Math.round((item.score / maxScore) * 100));
             const highlightedSnippet = highlightText(item.snippet, data.query);
             
-            const breakdownLabel = data.algorithm === 'SEMANTIC'
-                ? 'Semantic Match:'
-                : (data.algorithm === 'BM25' ? 'BM25 Score:'
-                : (data.algorithm === 'FIELD_AWARE' ? 'Field-Aware BM25:'
-                : (data.algorithm === 'HYBRID' ? 'Hybrid RRF Score:' : 'TF-IDF Score:')));
-
             const termBreakdownHtml = Object.entries(item.term_scores).map(([term, sc]) => 
-                `<span class="term-chip">${term === 'semantic' ? 'cosine_sim' : term}: ${typeof sc === 'number' ? sc.toFixed(3) : sc}</span>`
+                `<span class="term-chip">${term}: ${sc}</span>`
             ).join('');
 
             return `
@@ -281,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="card-url"><i class="fa-solid fa-link"></i> ${item.url}</span>
                     <p class="card-snippet">${highlightedSnippet}</p>
                     <div class="card-footer">
-                        <span style="color: var(--text-dim);">${breakdownLabel}</span>
+                        <span style="color: var(--text-dim);">TF-IDF Breakdown:</span>
                         <div class="term-breakdown">${termBreakdownHtml}</div>
                     </div>
                 </div>
@@ -304,92 +268,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function escapeRegExp(string) {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
-    // -----------------------------------------------------------------------
-    // Evaluation Panel
-    // -----------------------------------------------------------------------
-    async function runEvaluation() {
-        const query = document.getElementById('evalQuery').value.trim();
-        const relevantRaw = document.getElementById('evalRelevant').value.trim();
-        const k = parseInt(document.getElementById('evalK').value) || 10;
-        const checkedAlgos = Array.from(document.querySelectorAll('.eval-algo-cb:checked')).map(cb => cb.value);
-
-        if (!query || !relevantRaw) {
-            evalResults.innerHTML = '<p style="color:var(--text-muted)">Please fill in both Query and Relevant IDs.</p>';
-            return;
-        }
-
-        const relevant_ids = relevantRaw.split(',').map(s => s.trim()).filter(Boolean);
-
-        btnRunEval.disabled = true;
-        btnRunEval.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Running...';
-        evalResults.innerHTML = '<p style="color:var(--text-muted)">Running evaluation across algorithms...</p>';
-
-        try {
-            const res = await fetch('/api/evaluate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query, relevant_ids, algorithms: checkedAlgos, k })
-            });
-            const data = await res.json();
-
-            if (!res.ok) {
-                evalResults.innerHTML = `<p style="color:#f87171">Error: ${data.error}</p>`;
-                return;
-            }
-
-            renderEvalResults(data);
-        } catch (err) {
-            evalResults.innerHTML = `<p style="color:#f87171">Request failed: ${err.message}</p>`;
-        } finally {
-            btnRunEval.disabled = false;
-            btnRunEval.innerHTML = '<i class="fa-solid fa-play"></i> Run Evaluation';
-        }
-    }
-
-    function renderEvalResults(data) {
-        const metrics = data.metrics;
-        const algos = Object.keys(metrics);
-        const k = data.k;
-        const metricKeys = [`precision@${k}`, `recall@${k}`, `f1@${k}`, `ndcg@${k}`, 'mrr', `map@${k}`];
-        const metricLabels = [`P@${k}`, `R@${k}`, `F1@${k}`, `NDCG@${k}`, 'MRR', `MAP@${k}`];
-
-        // Find best value per metric for highlighting.
-        const bestPerMetric = {};
-        metricKeys.forEach(mk => {
-            bestPerMetric[mk] = Math.max(...algos.map(a => metrics[a][mk] || 0));
-        });
-
-        const algoLabels = { tfidf: 'TF-IDF', bm25: 'BM25', field_aware: 'Field-Aware', semantic: 'Semantic', hybrid: 'Hybrid' };
-
-        let html = `<div class="eval-summary">`;
-        html += `<p><strong>Query:</strong> "${data.query}" &nbsp;|&nbsp; <strong>Relevant docs:</strong> ${data.relevant_count} &nbsp;|&nbsp; <strong>K:</strong> ${k}</p>`;
-        html += `</div>`;
-        html += `<div class="eval-table-wrap"><table class="eval-table">`;
-        html += `<thead><tr><th>Algorithm</th>${metricLabels.map(m => `<th>${m}</th>`).join('')}<th>Time (ms)</th><th>Hits</th></tr></thead>`;
-        html += `<tbody>`;
-
-        algos.forEach(algo => {
-            const m = metrics[algo];
-            if (m.error) {
-                html += `<tr><td>${algoLabels[algo] || algo}</td><td colspan="${metricLabels.length + 2}" style="color:#f87171">${m.error}</td></tr>`;
-                return;
-            }
-            html += `<tr>`;
-            html += `<td class="algo-cell">${algoLabels[algo] || algo}</td>`;
-            metricKeys.forEach(mk => {
-                const val = (m[mk] || 0);
-                const isBest = val > 0 && val === bestPerMetric[mk];
-                html += `<td class="${isBest ? 'best-cell' : ''}">${val.toFixed(4)}</td>`;
-            });
-            html += `<td>${m.execution_time_ms || '-'}</td>`;
-            html += `<td>${m.hits || 0} / ${k}</td>`;
-            html += `</tr>`;
-        });
-
-        html += `</tbody></table></div>`;
-        html += `<p style="color:var(--text-dim);font-size:0.78rem;margin-top:0.5rem;">&#9733; Green cells = best score for that metric across algorithms.</p>`;
-        evalResults.innerHTML = html;
     }
 });

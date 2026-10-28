@@ -9,22 +9,13 @@ from .inverted_index import InvertedIndex
 from .ranker import Ranker
 from .spell_check import SpellChecker
 from .corpus import SAMPLE_CORPUS
-from .query_expansion import QueryExpander
-from .evaluation import evaluate, compare_systems
+from .semantic_search import SemanticSearcher
 
 
 class SearchEngine:
     """
     Main SearchEngine coordinating the tokenizer, inverted index,
-    ranker, spell checker, query expander, and research-paper corpus.
-
-    Supported algorithms
-    --------------------
-    tfidf        : TF-IDF cosine similarity
-    bm25         : Okapi BM25
-    field_aware  : Field-Aware BM25 (title boosted 3x)
-    semantic     : Sentence-transformer cosine similarity
-    hybrid       : Reciprocal Rank Fusion of BM25 + Semantic
+    ranker, spell checker, and research-paper corpus.
     """
 
     def __init__(self, load_sample_corpus: bool = True):
@@ -32,7 +23,6 @@ class SearchEngine:
         self.index = InvertedIndex()
         self.ranker = Ranker(self.index)
         self.spell_checker = SpellChecker(self.index.vocabulary)
-        self.query_expander = QueryExpander(self.index)
         self._semantic_searcher = None
 
         if load_sample_corpus:
@@ -107,7 +97,6 @@ class SearchEngine:
 
     def _get_semantic_searcher(self):
         if self._semantic_searcher is None:
-            from .semantic_search import SemanticSearcher
             self._semantic_searcher = SemanticSearcher(
                 self.index.documents
             )
@@ -125,11 +114,7 @@ class SearchEngine:
     ):
         """
         Tokenize and index a document while preserving its metadata.
-        Title tokens are extracted separately to support field-aware ranking.
         """
-        # Tokenize title separately for field-aware ranking.
-        title_tokens = self.tokenizer.tokenize(title)
-
         full_text = f"{title} {content}"
         tokens_with_pos = self.tokenizer.tokenize_with_positions(
             full_text
@@ -142,7 +127,6 @@ class SearchEngine:
             category,
             url,
             tokens_with_pos,
-            title_tokens=title_tokens,
         )
 
         # Store research-paper metadata for result display and future use.
@@ -199,17 +183,9 @@ class SearchEngine:
         query: str,
         algorithm: str = "tfidf",
         top_k: int = 10,
-        expand_query: bool = False,
     ) -> Dict[str, Any]:
         """
         Execute a query and return ranked results and timing metrics.
-
-        Parameters
-        ----------
-        query        : raw search query string
-        algorithm    : one of tfidf | bm25 | field_aware | semantic | hybrid
-        top_k        : number of results to return
-        expand_query : if True, augment query tokens using corpus co-occurrence
         """
         start_time = time.perf_counter()
 
@@ -221,7 +197,6 @@ class SearchEngine:
                 "execution_time_ms": 0.0,
                 "suggestion": None,
                 "algorithm": algorithm.upper(),
-                "expanded_terms": [],
             }
 
         # Check for a possible spelling correction.
@@ -242,43 +217,22 @@ class SearchEngine:
                 ),
                 "suggestion": suggestion,
                 "algorithm": algorithm.upper(),
-                "expanded_terms": [],
             }
-
-        # Optional query expansion.
-        expanded_terms: List[str] = []
-        effective_tokens = query_tokens
-        if expand_query:
-            expansion = self.query_expander.expand(query_tokens, top_n=5)
-            expanded_terms = expansion
-            effective_tokens = query_tokens + expansion
 
         # Select the ranking algorithm.
         algorithm_name = algorithm.lower()
 
         if algorithm_name == "tfidf":
-            ranked = self.ranker.rank_tfidf(effective_tokens)
+            ranked = self.ranker.rank_tfidf(query_tokens)
 
         elif algorithm_name == "bm25":
-            ranked = self.ranker.rank_bm25(effective_tokens)
-
-        elif algorithm_name == "field_aware":
-            ranked = self.ranker.rank_field_aware(effective_tokens)
+            ranked = self.ranker.rank_bm25(query_tokens)
 
         elif algorithm_name == "semantic":
             ranked = self._get_semantic_searcher().search(
                 query,
                 top_k=max(top_k, 100),
             )
-
-        elif algorithm_name == "hybrid":
-            # BM25 field-aware + semantic, fused via RRF.
-            bm25_results = self.ranker.rank_field_aware(effective_tokens)
-            semantic_results = self._get_semantic_searcher().search(
-                query,
-                top_k=max(top_k, 100),
-            )
-            ranked = self.ranker.rank_hybrid(bm25_results, semantic_results)
 
         else:
             raise ValueError(
@@ -288,9 +242,7 @@ class SearchEngine:
         results = []
 
         for doc_id, score, term_scores in ranked[:max(0, top_k)]:
-            doc_meta = self.index.documents.get(doc_id)
-            if not doc_meta:
-                continue
+            doc_meta = self.index.documents[doc_id]
             content = doc_meta.get(
                 "abstract",
                 doc_meta.get("content", ""),
@@ -325,51 +277,6 @@ class SearchEngine:
             "execution_time_ms": round(execution_time, 2),
             "suggestion": suggestion,
             "algorithm": algorithm.upper(),
-            "expanded_terms": expanded_terms,
-        }
-
-    def evaluate_query(
-        self,
-        query: str,
-        relevant_ids: List[str],
-        algorithms: Optional[List[str]] = None,
-        top_k: int = 10,
-    ) -> Dict[str, Any]:
-        """
-        Run one or more algorithms on a query and compute IR metrics.
-
-        Parameters
-        ----------
-        query        : search query string
-        relevant_ids : list of ground-truth relevant document IDs
-        algorithms   : list of algorithm names to evaluate (default: all)
-        top_k        : evaluation cut-off rank
-
-        Returns
-        -------
-        Dict with per-algorithm metrics and an overall comparison.
-        """
-        if algorithms is None:
-            algorithms = ["tfidf", "bm25", "field_aware", "semantic", "hybrid"]
-
-        relevant_set = set(relevant_ids)
-        results: Dict[str, Any] = {}
-
-        for algo in algorithms:
-            try:
-                res = self.search(query, algorithm=algo, top_k=top_k)
-                retrieved_ids = [r["id"] for r in res["results"]]
-                metrics = evaluate(retrieved_ids, relevant_set, k=top_k)
-                metrics["execution_time_ms"] = res["execution_time_ms"]
-                results[algo] = metrics
-            except Exception as exc:
-                results[algo] = {"error": str(exc)}
-
-        return {
-            "query": query,
-            "relevant_count": len(relevant_ids),
-            "k": top_k,
-            "metrics": results,
         }
 
     def autocomplete(
@@ -392,11 +299,6 @@ class SearchEngine:
         ]
 
         return sorted(matches)[:limit]
-
-    def get_expand_preview(self, query: str, top_n: int = 5) -> List[str]:
-        """Return expansion terms for a query without running a full search."""
-        tokens = self.tokenizer.tokenize(query)
-        return self.query_expander.expand(tokens, top_n=top_n)
 
     def get_stats(self) -> Dict[str, Any]:
         """Return index statistics."""

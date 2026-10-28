@@ -39,7 +39,7 @@
         <main class="main-content">
             <div class="hero-section" id="heroSection">
                 <h1 class="hero-title">Information Retrieval <span class="gradient-text">Engine</span></h1>
-                <p class="hero-subtitle">TF-IDF · BM25 · Field-Aware · Semantic · Hybrid ranking over 20,000 arXiv CS papers.</p>
+                <p class="hero-subtitle">High-performance inverted indexing with TF-IDF and Okapi BM25 ranking algorithms.</p>
             </div>
 
             <!-- Search Form Box -->
@@ -68,38 +68,14 @@
                             <input type="radio" name="algorithm" value="bm25">
                             <span>BM25</span>
                         </label>
-                        <label class="radio-btn">
-                            <input type="radio" name="algorithm" value="field_aware">
-                            <span>Field-Aware</span>
-                        </label>
-                        <label class="radio-btn">
-                            <input type="radio" name="algorithm" value="semantic">
-                            <span>Semantic</span>
-                        </label>
-                        <label class="radio-btn">
-                            <input type="radio" name="algorithm" value="hybrid">
-                            <span>&#x26A1; Hybrid</span>
-                        </label>
                     </div>
 
-                    <div class="toolbar-row-2">
-                        <div class="quick-tags">
-                            <span class="tag-label">Quick Try:</span>
-                            <button class="quick-chip">data structures</button>
-                            <button class="quick-chip">machine learning</button>
-                            <button class="quick-chip">graph neural network</button>
-                            <button class="quick-chip">reinforcement learning</button>
-                        </div>
-                        <div class="expand-toggle">
-                            <label class="toggle-label" title="Use corpus co-occurrence to expand query with related terms">
-                                <input type="checkbox" id="chkExpand">
-                                <span class="toggle-switch"></span>
-                                <span>Query Expansion</span>
-                            </label>
-                            <button class="btn-evaluate" id="btnOpenEval" title="Evaluate algorithms with ground truth">
-                                <i class="fa-solid fa-chart-bar"></i> Evaluate
-                            </button>
-                        </div>
+                    <div class="quick-tags">
+                        <span class="tag-label">Quick Try:</span>
+                        <button class="quick-chip">data structures</button>
+                        <button class="quick-chip">machine learning</button>
+                        <button class="quick-chip">flask web</button>
+                        <button class="quick-chip">database sql</button>
                     </div>
                 </div>
             </div>
@@ -107,12 +83,6 @@
             <!-- Suggestion Alert -->
             <div class="suggestion-banner" id="suggestionBanner" style="display: none;">
                 <i class="fa-solid fa-lightbulb"></i> Did you mean: <a href="#" id="suggestionLink"></a>?
-            </div>
-
-            <!-- Query Expansion Banner -->
-            <div class="expansion-banner" id="expansionBanner" style="display: none;">
-                <i class="fa-solid fa-wand-magic-sparkles"></i>
-                <span>Expanded with: </span><span id="expansionTerms"></span>
             </div>
 
             <!-- Search Metrics Header -->
@@ -163,45 +133,6 @@
         </div>
     </div>
 
-    <!-- Evaluation Modal -->
-    <div class="modal-overlay" id="evalModal" style="display: none;">
-        <div class="modal-card modal-card-wide">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-chart-bar"></i> Algorithm Evaluation</h3>
-                <button class="modal-close" id="btnCloseEval"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="eval-body">
-                <p class="eval-desc">Provide a query and known relevant arXiv IDs to benchmark all algorithms side-by-side using Precision@K, Recall@K, NDCG@K, and MRR.</p>
-                <div class="form-group">
-                    <label for="evalQuery">Search Query</label>
-                    <input type="text" id="evalQuery" placeholder="e.g. deep learning image classification">
-                </div>
-                <div class="form-group">
-                    <label for="evalRelevant">Relevant Document IDs (comma-separated arXiv IDs)</label>
-                    <input type="text" id="evalRelevant" placeholder="e.g. 1409.1556, 1512.03385, 1706.03762">
-                </div>
-                <div class="form-group eval-inline">
-                    <div>
-                        <label for="evalK">Cutoff K</label>
-                        <input type="number" id="evalK" value="10" min="1" max="100" style="width:80px;">
-                    </div>
-                    <div class="eval-algo-select">
-                        <label>Algorithms:</label>
-                        <label><input type="checkbox" class="eval-algo-cb" value="tfidf" checked> TF-IDF</label>
-                        <label><input type="checkbox" class="eval-algo-cb" value="bm25" checked> BM25</label>
-                        <label><input type="checkbox" class="eval-algo-cb" value="field_aware" checked> Field-Aware</label>
-                        <label><input type="checkbox" class="eval-algo-cb" value="semantic" checked> Semantic</label>
-                        <label><input type="checkbox" class="eval-algo-cb" value="hybrid" checked> Hybrid</label>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary" id="btnCloseEval2">Close</button>
-                    <button type="button" class="btn-primary" id="btnRunEval"><i class="fa-solid fa-play"></i> Run Evaluation</button>
-                </div>
-                <div id="evalResults" style="margin-top:1.5rem;"></div>
-            </div>
-        </div>
-    </div>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
