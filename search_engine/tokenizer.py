@@ -59,6 +59,17 @@ class Tokenizer:
         self.stop_words = stop_words if stop_words is not None else DEFAULT_STOP_WORDS
         self.enable_stemming = enable_stemming
 
+    def tokenize_surface(self, text: str) -> List[str]:
+        """Return lowercased surface forms after stop-word removal, without stemming.
+
+        This vocabulary is used for human-readable spelling suggestions; the
+        inverted index continues to use ``tokenize`` and its normalized terms.
+        """
+        if not text:
+            return []
+        raw_tokens = re.findall(r'\b[a-zA-Z0-9]+\b', text.lower())
+        return [token for token in raw_tokens if token not in self.stop_words]
+
     def tokenize(self, text: str) -> List[str]:
         """
         Converts text into normalized, filtered, and stemmed tokens.

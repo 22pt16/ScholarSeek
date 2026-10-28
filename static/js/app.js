@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Debounce timer for autocomplete
     let debounceTimer = null;
+    let currentPage = 1;
 
     // Load Initial Stats
     fetchStats();
@@ -154,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
         autocompleteDropdown.innerHTML = suggestions.map(item => `
             <div class="suggestion-item">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <span>${item}</span>
+                <span>${escapeHtml(item)}</span>
             </div>
         `).join('');
 
@@ -173,9 +174,10 @@ document.addEventListener('DOMContentLoaded', () => {
         autocompleteDropdown.style.display = 'none';
     }
 
-    async function performSearch() {
+    async function performSearch(page = 1) {
         const query = searchInput.value.trim();
         if (!query) return;
+        currentPage = page;
 
         hideAutocomplete();
         const selectedAlgo = document.querySelector('input[name="algorithm"]:checked').value;
@@ -185,7 +187,9 @@ document.addEventListener('DOMContentLoaded', () => {
         suggestionBanner.style.display = 'none';
 
         try {
-            const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&algo=${selectedAlgo}`);
+            const res = await fetch(
+                `/api/search?q=${encodeURIComponent(query)}&algo=${selectedAlgo}&page=${page}&per_page=10`
+            );
             const data = await res.json();
 
             heroSection.style.display = 'none';
@@ -210,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resultsContainer.innerHTML = `
                 <div class="result-card" style="text-align: center; padding: 40px;">
                     <i class="fa-solid fa-ghost" style="font-size: 2.5rem; color: var(--text-dim); margin-bottom: 12px;"></i>
-                    <h3>No results found for "${data.query}"</h3>
+                    <h3>No results found for "${escapeHtml(data.query)}"</h3>
                     <p style="color: var(--text-muted); margin-top: 6px;">Try adjusting your search terms or algorithm choice.</p>
                 </div>
             `;
@@ -220,18 +224,19 @@ document.addEventListener('DOMContentLoaded', () => {
         // Calculate maximum score for relative percentage bars
         const maxScore = Math.max(...data.results.map(r => r.score)) || 1.0;
 
-        resultsContainer.innerHTML = data.results.map(item => {
+        const resultsHTML = data.results.map(item => {
             const pct = Math.min(100, Math.round((item.score / maxScore) * 100));
             const highlightedSnippet = highlightText(item.snippet, data.query);
             
-            const termBreakdownHtml = Object.entries(item.term_scores).map(([term, sc]) => 
-                `<span class="term-chip">${term}: ${sc}</span>`
+            const termBreakdownHtml = Object.entries(item.term_scores || {}).map(([term, sc]) =>
+                `<span class="term-chip">${escapeHtml(term)}: ${escapeHtml(sc)}</span>`
             ).join('');
+            const resultUrl = safeHref(item.url);
 
             return `
                 <div class="result-card">
                     <div class="card-top">
-                        <span class="category-tag">${item.category}</span>
+                        <span class="category-tag">${escapeHtml(item.category)}</span>
                         <div class="score-badge">
                             <div class="score-bar-bg" title="Relevance Score">
                                 <div class="score-bar-fill" style="width: ${pct}%;"></div>
@@ -240,30 +245,89 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                     <h3 class="card-title">
-                        <a href="${item.url}" target="_blank">${item.title}</a>
+                        <a href="${escapeHtml(resultUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a>
                     </h3>
-                    <span class="card-url"><i class="fa-solid fa-link"></i> ${item.url}</span>
+                    <span class="card-url"><i class="fa-solid fa-link"></i> ${escapeHtml(item.url)}</span>
                     <p class="card-snippet">${highlightedSnippet}</p>
                     <div class="card-footer">
-                        <span style="color: var(--text-dim);">TF-IDF Breakdown:</span>
+                        <span style="color: var(--text-dim);">${data.algorithm === 'BM25' ? 'BM25 Contributions:' : 'TF-IDF Contributions:'}</span>
                         <div class="term-breakdown">${termBreakdownHtml}</div>
                     </div>
                 </div>
             `;
         }).join('');
+        const totalPages = data.total_pages || 1;
+
+        const paginationHTML = totalPages > 1 ? `
+            <div class="pagination-controls">
+                <button
+                    class="btn-secondary"
+                    data-page="${data.page - 1}"
+                    ${data.page <= 1 ? 'disabled' : ''}>
+                    ← Previous
+                </button>
+
+                <span>
+                    Page ${data.page} of ${totalPages}
+                    · ${data.total_results.toLocaleString()} matches
+                </span>
+
+                <button
+                    class="btn-secondary"
+                    data-page="${data.page + 1}"
+                    ${data.page >= totalPages ? 'disabled' : ''}>
+                    Next →
+                </button>
+            </div>
+        ` : '';
+
+        resultsContainer.innerHTML = paginationHTML + resultsHTML + paginationHTML;
+
+        
     }
+   resultsContainer.addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-page]');
+        if (!button || button.disabled) return;
+
+        await performSearch(Number(button.dataset.page));
+
+        resultsHeader.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+    });
 
     function highlightText(text, query) {
-        if (!query || !text) return text;
+        if (!query || !text) return escapeHtml(text || '');
         const terms = query.split(/\s+/).filter(t => t.length > 0);
-        let result = text;
+        let result = escapeHtml(text);
 
         terms.forEach(term => {
-            const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+            const safeTerm = escapeHtml(term);
+            const regex = new RegExp(`(${escapeRegExp(safeTerm)})`, 'gi');
             result = result.replace(regex, '<mark class="matched-highlight">$1</mark>');
         });
 
         return result;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        })[char]);
+    }
+
+    function safeHref(value) {
+        try {
+            const parsed = new URL(String(value || '#'), window.location.origin);
+            return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '#';
+        } catch (_) {
+            return '#';
+        }
     }
 
     function escapeRegExp(string) {

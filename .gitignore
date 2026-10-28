@@ -39,3 +39,4 @@ Thumbs.db
 
 # Data cache
 search_engine/cache/
+/search_engine/corpus.json

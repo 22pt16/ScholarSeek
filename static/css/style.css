@@ -570,3 +570,18 @@ body {
     font-size: 0.85rem;
     color: var(--text-dim);
 }
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 20px 0;
+    color: var(--text-muted);
+}
+
+.pagination-controls button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}

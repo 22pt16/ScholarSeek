@@ -24,7 +24,26 @@ def api_search():
             "algorithm": algo.upper()
         })
 
-    result = engine.search(query, algorithm=algo)
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+        per_page = max(1, min(100, int(request.args.get("per_page", 10))))
+    except ValueError:
+        return jsonify({"error": "page and per_page must be integers"}), 400
+
+    result = engine.search(
+        query,
+        algorithm=algo,
+        page=page,
+        per_page=per_page,
+    )
+
+    print("PAGINATION DEBUG:", {
+        "page_requested": page,
+        "page_returned": result.get("page"),
+        "total_pages": result.get("total_pages"),
+        "results_returned": len(result.get("results", [])),
+    })
+
     return jsonify(result)
 
 @app.route("/api/suggest", methods=["GET"])
@@ -59,4 +78,4 @@ def api_add_document():
 
 if __name__ == "__main__":
     print("🚀 Starting Mini Search Engine Web Server on http://127.0.0.1:5000 ...")
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, use_reloader=False)

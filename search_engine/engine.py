@@ -2,6 +2,7 @@
 import json
 import time
 from pathlib import Path
+from bisect import bisect_left
 from typing import Dict, List, Any, Optional
 
 from .tokenizer import Tokenizer
@@ -9,7 +10,6 @@ from .inverted_index import InvertedIndex
 from .ranker import Ranker
 from .spell_check import SpellChecker
 from .corpus import SAMPLE_CORPUS
-from .semantic_search import SemanticSearcher
 
 
 class SearchEngine:
@@ -22,8 +22,11 @@ class SearchEngine:
         self.tokenizer = Tokenizer()
         self.index = InvertedIndex()
         self.ranker = Ranker(self.index)
-        self.spell_checker = SpellChecker(self.index.vocabulary)
+        self.surface_vocabulary = set()
+        self.spell_checker = SpellChecker(self.surface_vocabulary)
         self._semantic_searcher = None
+        self._autocomplete_cache = []
+        self._autocomplete_cache_size = -1
 
         if load_sample_corpus:
             self._load_corpus()
@@ -71,6 +74,7 @@ class SearchEngine:
                         category=paper.get("category", "General"),
                         url=paper.get("url", "#"),
                         metadata=paper,
+                        rebuild_norms=False,
                     )
 
                     loaded += 1
@@ -90,16 +94,18 @@ class SearchEngine:
                     content=doc["content"],
                     category=doc.get("category", "General"),
                     url=doc.get("url", "#"),
+                    rebuild_norms=False,
                 )
 
-        # Ensure spell correction uses the completed vocabulary.
-        self.spell_checker.vocabulary = self.index.vocabulary
+        # Build expensive derived structures once after bulk indexing.
+        self.ranker.rebuild_document_norms()
+        self.spell_checker.prepare()
 
     def _get_semantic_searcher(self):
         if self._semantic_searcher is None:
-            self._semantic_searcher = SemanticSearcher(
-                self.index.documents
-            )
+            # Keep transformer dependencies out of the classical-search startup path.
+            from .semantic_search import SemanticSearcher
+            self._semantic_searcher = SemanticSearcher(self.index.documents)
 
         return self._semantic_searcher
 
@@ -111,14 +117,14 @@ class SearchEngine:
         category: str = "General",
         url: str = "#",
         metadata: Optional[Dict[str, Any]] = None,
+        rebuild_norms: bool = True,
     ):
         """
         Tokenize and index a document while preserving its metadata.
         """
         full_text = f"{title} {content}"
-        tokens_with_pos = self.tokenizer.tokenize_with_positions(
-            full_text
-        )
+        tokens_with_pos = self.tokenizer.tokenize_with_positions(full_text)
+        self.surface_vocabulary.update(self.tokenizer.tokenize_surface(full_text))
 
         self.index.add_document(
             doc_id,
@@ -133,8 +139,10 @@ class SearchEngine:
         if metadata:
             self.index.documents[doc_id].update(metadata)
 
-        # Keep the spell checker's vocabulary synchronized.
-        self.spell_checker.vocabulary = self.index.vocabulary
+        # Spell suggestions use surface forms; ranking uses normalized index terms.
+        self.spell_checker.vocabulary = self.surface_vocabulary
+        if rebuild_norms:
+            self.ranker.rebuild_document_norms()
 
     def extract_snippet(
         self,
@@ -183,7 +191,9 @@ class SearchEngine:
         query: str,
         algorithm: str = "tfidf",
         top_k: int = 10,
-    ) -> Dict[str, Any]:
+        page: int = 1,
+        per_page: int = 10,
+        ) -> Dict[str, Any]:
         """
         Execute a query and return ranked results and timing metrics.
         """
@@ -199,12 +209,6 @@ class SearchEngine:
                 "algorithm": algorithm.upper(),
             }
 
-        # Check for a possible spelling correction.
-        corrected_query, has_correction = (
-            self.spell_checker.suggest_query(query)
-        )
-        suggestion = corrected_query if has_correction else None
-
         query_tokens = self.tokenizer.tokenize(query)
 
         if not query_tokens:
@@ -215,9 +219,16 @@ class SearchEngine:
                 "execution_time_ms": round(
                     (time.perf_counter() - start_time) * 1000, 2
                 ),
-                "suggestion": suggestion,
+                "suggestion": None,
                 "algorithm": algorithm.upper(),
             }
+
+        corrected_query, has_correction = self.spell_checker.suggest_query(
+            query,
+            tokenizer=self.tokenizer,
+            indexed_vocabulary=self.index.vocabulary,
+        )
+        suggestion = corrected_query if has_correction else None
 
         # Select the ranking algorithm.
         algorithm_name = algorithm.lower()
@@ -241,7 +252,13 @@ class SearchEngine:
 
         results = []
 
-        for doc_id, score, term_scores in ranked[:max(0, top_k)]:
+        page = max(1, int(page))
+        per_page = max(1, min(100, int(per_page)))
+
+        start = (page - 1) * per_page
+        end = start + per_page
+
+        for doc_id, score, term_scores in ranked[start:end]:
             doc_meta = self.index.documents[doc_id]
             content = doc_meta.get(
                 "abstract",
@@ -273,7 +290,10 @@ class SearchEngine:
         return {
             "query": query,
             "results": results,
-            "total_results": len(results),
+            "total_results": len(ranked),
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (len(ranked) + per_page - 1) // per_page,
             "execution_time_ms": round(execution_time, 2),
             "suggestion": suggestion,
             "algorithm": algorithm.upper(),
@@ -292,13 +312,19 @@ class SearchEngine:
 
         prefix_clean = prefix.lower().strip()
 
-        matches = [
-            term
-            for term in self.index.vocabulary
-            if term.startswith(prefix_clean)
-        ]
+        if len(self.index.vocabulary) != self._autocomplete_cache_size:
+            self._autocomplete_cache = sorted(self.index.vocabulary)
+            self._autocomplete_cache_size = len(self.index.vocabulary)
 
-        return sorted(matches)[:limit]
+        start = bisect_left(self._autocomplete_cache, prefix_clean)
+        matches = []
+        for term in self._autocomplete_cache[start:]:
+            if not term.startswith(prefix_clean):
+                break
+            matches.append(term)
+            if len(matches) >= limit:
+                break
+        return matches
 
     def get_stats(self) -> Dict[str, Any]:
         """Return index statistics."""
