@@ -30,19 +30,21 @@ def api_search():
     except ValueError:
         return jsonify({"error": "page and per_page must be integers"}), 400
 
-    result = engine.search(
-        query,
-        algorithm=algo,
-        page=page,
-        per_page=per_page,
-    )
+    valid_algos = {"tfidf", "bm25", "semantic"}
+    if algo not in valid_algos:
+        return jsonify({
+            "error": f"Invalid algorithm '{algo}'. Supported: {', '.join(sorted(valid_algos))}"
+        }), 400
 
-    print("PAGINATION DEBUG:", {
-        "page_requested": page,
-        "page_returned": result.get("page"),
-        "total_pages": result.get("total_pages"),
-        "results_returned": len(result.get("results", [])),
-    })
+    try:
+        result = engine.search(
+            query,
+            algorithm=algo,
+            page=page,
+            per_page=per_page,
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
     return jsonify(result)
 

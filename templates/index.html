@@ -39,14 +39,14 @@
         <main class="main-content">
             <div class="hero-section" id="heroSection">
                 <h1 class="hero-title">Information Retrieval <span class="gradient-text">Engine</span></h1>
-                <p class="hero-subtitle">High-performance inverted indexing with TF-IDF and Okapi BM25 ranking algorithms.</p>
+                <p class="hero-subtitle">High-performance research paper search with TF-IDF, Okapi BM25, and Transformer Semantic Search.</p>
             </div>
 
             <!-- Search Form Box -->
             <div class="search-box-wrapper">
                 <div class="search-box">
                     <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                    <input type="text" id="searchInput" placeholder="Search data structures, AI, Flask, SQL, algorithms..." autocomplete="off">
+                    <input type="text" id="searchInput" placeholder="Search neural networks, machine learning, quantum computing, graph models..." autocomplete="off">
                     <button class="clear-btn" id="btnClearSearch" style="display:none;">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
@@ -68,14 +68,18 @@
                             <input type="radio" name="algorithm" value="bm25">
                             <span>BM25</span>
                         </label>
+                        <label class="radio-btn">
+                            <input type="radio" name="algorithm" value="semantic">
+                            <span>Semantic</span>
+                        </label>
                     </div>
 
                     <div class="quick-tags">
                         <span class="tag-label">Quick Try:</span>
-                        <button class="quick-chip">data structures</button>
+                        <button class="quick-chip">neural networks</button>
                         <button class="quick-chip">machine learning</button>
-                        <button class="quick-chip">flask web</button>
-                        <button class="quick-chip">database sql</button>
+                        <button class="quick-chip">quantum computing</button>
+                        <button class="quick-chip">phishing detection</button>
                     </div>
                 </div>
             </div>
