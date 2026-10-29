@@ -48,7 +48,7 @@ def main():
         raise SystemExit("qrels.json has no relevance judgments yet. Add judged document IDs and grades.")
 
     engine = SearchEngine(load_sample_corpus=True)
-    for algorithm in ("tfidf", "bm25"):
+    for algorithm in ("tfidf", "bm25", "semantic"):
         precisions, recalls, ndcgs, latencies = [], [], [], []
         for query, raw_grades in qrels.items():
             grades = {str(doc_id): int(grade) for doc_id, grade in raw_grades.items()}

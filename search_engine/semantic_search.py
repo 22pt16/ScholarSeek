@@ -17,8 +17,9 @@ class SemanticSearcher:
     MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
     def __init__(self, documents, cache_path=None):
-        self.documents = documents
+        self.documents = dict(documents)
         self.doc_ids = list(documents.keys())
+        self._custom_cache = cache_path is not None
 
         self.texts = [
             self._document_text(documents[doc_id])
@@ -36,9 +37,12 @@ class SemanticSearcher:
         self.model = None
         self.embeddings = None
 
-        self.fingerprint = self._make_fingerprint()
-
-        self._load_or_create_embeddings()
+        if self.texts:
+            self.fingerprint = self._make_fingerprint()
+            self._load_or_create_embeddings()
+        else:
+            self.fingerprint = ""
+            self.embeddings = np.empty((0, 384), dtype=np.float32)
 
     @staticmethod
     def _document_text(document):
@@ -117,22 +121,48 @@ class SemanticSearcher:
             normalize_embeddings=True,
         ).astype(np.float32)
 
-        self.cache_path.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+        # Only overwrite cache if explicitly configured or full corpus (prevent wiping 20k cache on small test sets)
+        if self._custom_cache or len(self.texts) >= 1000:
+            self.cache_path.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
 
-        np.savez_compressed(
-            self.cache_path,
-            doc_ids=np.asarray(self.doc_ids, dtype=str),
-            embeddings=self.embeddings,
-            fingerprint=np.asarray(self.fingerprint),
-        )
+            np.savez_compressed(
+                self.cache_path,
+                doc_ids=np.asarray(self.doc_ids, dtype=str),
+                embeddings=self.embeddings,
+                fingerprint=np.asarray(self.fingerprint),
+            )
 
-        print(
-            "Embeddings saved to:",
-            self.cache_path,
-        )
+            print(
+                "Embeddings saved to:",
+                self.cache_path,
+            )
+
+    def add_document(self, doc_id, document):
+        """Dynamically index or update a document and its embedding vector."""
+        self.documents[doc_id] = document
+        text = self._document_text(document)
+        model = self._get_model()
+        new_vec = model.encode(
+            [text],
+            convert_to_numpy=True,
+            normalize_embeddings=True,
+        ).astype(np.float32)
+
+        if doc_id in self.doc_ids:
+            idx = self.doc_ids.index(doc_id)
+            self.texts[idx] = text
+            if self.embeddings is not None and len(self.embeddings) > idx:
+                self.embeddings[idx] = new_vec[0]
+        else:
+            self.doc_ids.append(doc_id)
+            self.texts.append(text)
+            if self.embeddings is not None and len(self.embeddings) > 0:
+                self.embeddings = np.vstack([self.embeddings, new_vec])
+            else:
+                self.embeddings = new_vec
 
     def search(self, query, top_k=10):
         """
@@ -142,6 +172,9 @@ class SemanticSearcher:
         dot product equals cosine similarity.
         """
         if not query or not query.strip():
+            return []
+
+        if not self.doc_ids or self.embeddings is None or len(self.embeddings) == 0:
             return []
 
         model = self._get_model()
@@ -179,7 +212,7 @@ class SemanticSearcher:
                 (
                     doc_id,
                     score,
-                    {"semantic": score},
+                    {"semantic": round(score, 4)},
                 )
             )
 

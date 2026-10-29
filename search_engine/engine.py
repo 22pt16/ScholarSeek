@@ -144,6 +144,9 @@ class SearchEngine:
         if rebuild_norms:
             self.ranker.rebuild_document_norms()
 
+        if self._semantic_searcher is not None:
+            self._semantic_searcher.add_document(doc_id, self.index.documents[doc_id])
+
     def extract_snippet(
         self,
         content: str,
@@ -190,20 +193,35 @@ class SearchEngine:
         self,
         query: str,
         algorithm: str = "tfidf",
-        top_k: int = 10,
+        top_k: Optional[int] = None,
         page: int = 1,
         per_page: int = 10,
-        ) -> Dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Execute a query and return ranked results and timing metrics.
         """
         start_time = time.perf_counter()
+
+        # Slicing configuration: top_k takes precedence when provided (for CLI, benchmarks, tests)
+        if top_k is not None:
+            effective_page = 1
+            effective_per_page = max(1, int(top_k))
+            start = 0
+            end = effective_per_page
+        else:
+            effective_page = max(1, int(page))
+            effective_per_page = max(1, min(100, int(per_page)))
+            start = (effective_page - 1) * effective_per_page
+            end = start + effective_per_page
 
         if not query or not query.strip():
             return {
                 "query": query,
                 "results": [],
                 "total_results": 0,
+                "page": effective_page,
+                "per_page": effective_per_page,
+                "total_pages": 0,
                 "execution_time_ms": 0.0,
                 "suggestion": None,
                 "algorithm": algorithm.upper(),
@@ -216,6 +234,9 @@ class SearchEngine:
                 "query": query,
                 "results": [],
                 "total_results": 0,
+                "page": effective_page,
+                "per_page": effective_per_page,
+                "total_pages": 0,
                 "execution_time_ms": round(
                     (time.perf_counter() - start_time) * 1000, 2
                 ),
@@ -240,23 +261,19 @@ class SearchEngine:
             ranked = self.ranker.rank_bm25(query_tokens)
 
         elif algorithm_name == "semantic":
+            # Retrieve enough top candidates to support requested page/top_k
+            candidate_pool = max(end, 200)
             ranked = self._get_semantic_searcher().search(
                 query,
-                top_k=max(top_k, 100),
+                top_k=candidate_pool,
             )
 
         else:
             raise ValueError(
-                f"Unknown search algorithm: {algorithm}"
+                f"Unknown search algorithm: {algorithm}. Supported: tfidf, bm25, semantic"
             )
 
         results = []
-
-        page = max(1, int(page))
-        per_page = max(1, min(100, int(per_page)))
-
-        start = (page - 1) * per_page
-        end = start + per_page
 
         for doc_id, score, term_scores in ranked[start:end]:
             doc_meta = self.index.documents[doc_id]
@@ -287,13 +304,19 @@ class SearchEngine:
             time.perf_counter() - start_time
         ) * 1000.0
 
+        total_pages = (
+            (len(ranked) + effective_per_page - 1) // effective_per_page
+            if effective_per_page > 0
+            else 1
+        )
+
         return {
             "query": query,
             "results": results,
             "total_results": len(ranked),
-            "page": page,
-            "per_page": per_page,
-            "total_pages": (len(ranked) + per_page - 1) // per_page,
+            "page": effective_page,
+            "per_page": effective_per_page,
+            "total_pages": total_pages,
             "execution_time_ms": round(execution_time, 2),
             "suggestion": suggestion,
             "algorithm": algorithm.upper(),

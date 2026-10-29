@@ -228,10 +228,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const pct = Math.min(100, Math.round((item.score / maxScore) * 100));
             const highlightedSnippet = highlightText(item.snippet, data.query);
             
-            const termBreakdownHtml = Object.entries(item.term_scores || {}).map(([term, sc]) =>
-                `<span class="term-chip">${escapeHtml(term)}: ${escapeHtml(sc)}</span>`
-            ).join('');
+            const termBreakdownHtml = Object.entries(item.term_scores || {}).map(([term, sc]) => {
+                const formattedScore = typeof sc === 'number' ? sc.toFixed(3) : sc;
+                return `<span class="term-chip">${escapeHtml(term)}: ${escapeHtml(formattedScore)}</span>`;
+            }).join('');
             const resultUrl = safeHref(item.url);
+
+            let breakdownLabel = 'TF-IDF Contributions:';
+            if (data.algorithm === 'BM25') {
+                breakdownLabel = 'BM25 Contributions:';
+            } else if (data.algorithm === 'SEMANTIC') {
+                breakdownLabel = 'Semantic Similarity:';
+            }
 
             return `
                 <div class="result-card">
@@ -250,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="card-url"><i class="fa-solid fa-link"></i> ${escapeHtml(item.url)}</span>
                     <p class="card-snippet">${highlightedSnippet}</p>
                     <div class="card-footer">
-                        <span style="color: var(--text-dim);">${data.algorithm === 'BM25' ? 'BM25 Contributions:' : 'TF-IDF Contributions:'}</span>
+                        <span style="color: var(--text-dim);">${breakdownLabel}</span>
                         <div class="term-breakdown">${termBreakdownHtml}</div>
                     </div>
                 </div>

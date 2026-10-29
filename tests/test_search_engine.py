@@ -56,3 +56,31 @@ def test_spell_suggestion_uses_surface_words():
     )
     assert changed
     assert suggestion.startswith("machine ")
+
+
+def test_semantic_search_returns_ranked_results():
+    engine = build_engine()
+    result = engine.search("machine learning", algorithm="semantic", top_k=2)
+    assert result["algorithm"] == "SEMANTIC"
+    assert len(result["results"]) == 2
+    assert result["results"][0]["id"] in {"paper-1", "paper-3"}
+    assert "semantic" in result["results"][0]["term_scores"]
+    assert result["results"][0]["score"] > 0
+
+
+def test_semantic_search_incremental_indexing():
+    engine = build_engine()
+    # Initialize semantic search
+    res1 = engine.search("quantum cryptography", algorithm="semantic", top_k=1)
+    
+    # Now dynamically add a quantum paper
+    engine.index_document(
+        "paper-q1",
+        "Quantum Cryptography and Security",
+        "Protocols for quantum key distribution and secure quantum communication",
+        category="quant-ph",
+        url="https://arxiv.org/abs/paper-q1"
+    )
+    res2 = engine.search("quantum key distribution", algorithm="semantic", top_k=1)
+    assert len(res2["results"]) > 0
+    assert res2["results"][0]["id"] == "paper-q1"

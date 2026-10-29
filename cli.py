@@ -9,7 +9,7 @@ def main():
     engine = SearchEngine(load_sample_corpus=True)
     stats = engine.get_stats()
     print(f"📊 Corpus Loaded: {stats['total_documents']} Documents | Vocabulary: {stats['vocabulary_size']} Terms")
-    print("Commands: type your query to search, ':bm25' or ':tfidf' to switch ranking algorithm, or ':exit' to quit.\n")
+    print("Commands: type your query to search, ':bm25', ':tfidf', ':semantic' to switch ranking algorithm, or ':exit' to quit.\n")
 
     current_algo = "tfidf"
 
@@ -23,7 +23,7 @@ def main():
             if query == ":exit":
                 print("Goodbye!")
                 break
-            elif query in (":tfidf", ":bm25"):
+            elif query in (":tfidf", ":bm25", ":semantic"):
                 current_algo = query[1:]
                 print(f"Switched algorithm to {current_algo.upper()}")
                 continue

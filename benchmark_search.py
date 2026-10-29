@@ -42,7 +42,7 @@ def main():
     print(f"Indexed tokens: {stats['total_terms_indexed']:,}")
     print(f"Average document length: {stats['avg_doc_length']}")
 
-    for algorithm in ("tfidf", "bm25"):
+    for algorithm in ("tfidf", "bm25", "semantic"):
         print(f"\n{algorithm.upper()} (top_k={TOP_K}, {REPEATS} timed runs)")
         print(f"{'Query':43} {'Median ms':>10} {'P95 ms':>9} {'Matches':>9}  Top result")
         for query in QUERIES:
