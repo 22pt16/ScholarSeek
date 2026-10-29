@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from statistics import mean, median
 from time import perf_counter
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from search_engine import SearchEngine
 from search_engine.metrics import (
@@ -112,16 +112,20 @@ def evaluate_engine(engine: Optional[SearchEngine] = None, print_output: bool = 
             ndcg5_list.append(ndcg5)
             ndcg10_list.append(ndcg10)
 
-        summary_results[algorithm] = {
-            "p_at_5": round(mean(p5_list), 4),
-            "p_at_10": round(mean(p10_list), 4),
-            "recall_at_5": round(mean(r5_list), 4) if r5_list else 0.0,
-            "recall_at_10": round(mean(r10_list), 4) if r10_list else 0.0,
-            "mrr": round(mean(mrr_list), 4),
-            "map_at_10": round(mean(map10_list), 4),
-            "ndcg_at_5": round(mean(ndcg5_list), 4),
-            "ndcg_at_10": round(mean(ndcg10_list), 4),
-        }
+            summary_results[algorithm] = {
+                    "p_at_5": round(mean(p5_list), 4),
+                    "p_at_10": round(mean(p10_list), 4),
+                    "recall_at_5": round(mean(r5_list), 4) if r5_list else 0.0,
+                    "recall_at_10": round(mean(r10_list), 4) if r10_list else 0.0,
+                    "mrr": round(mean(mrr_list), 4),
+                    "map_at_10": round(mean(map10_list), 4),
+                    "ndcg_at_5": round(mean(ndcg5_list), 4),
+                    "ndcg_at_10": round(mean(ndcg10_list), 4),
+                    "median_latency_ms": round(median(latencies), 2),
+                    "p95_latency_ms": round(percentile(latencies, 0.95), 2),
+                    "zero_results": zero_results_count,
+                    "zero_result_rate": round(zero_results_count / len(qrels), 4),
+                }
 
     # Compute pairwise Jaccard rank overlap between algorithms
     overlaps: Dict[str, float] = {}
@@ -169,15 +173,27 @@ Evaluated {len(qrels)} test queries across **TF-IDF**, **Okapi BM25**, and **Sem
             f"{m['mrr']:.4f} | {m['map_at_10']:.4f} | {m['ndcg_at_5']:.4f} | {m['ndcg_at_10']:.4f} |\n"
         )
 
-    markdown_content += "\n## Pairwise Algorithm Rank Overlap (Top 10 Jaccard Similarity)\n\n"
-    for pair, sim in overlaps.items():
-        markdown_content += f"- **{pair}**: `{sim:.4f}` ({sim * 100:.1f}%)\n"
+    markdown_content += "\n## Latency and Zero-Result Statistics\n\n"
+    markdown_content += (
+        "| Algorithm | Median latency (ms) | P95 latency (ms) "
+        "| Zero results | Zero-result rate |\n"
+        "| :--- | ---: | ---: | ---: | ---: |\n"
+    )
+
+    for algo, m in summary_results.items():
+        markdown_content += (
+            f"| **{algo.upper()}** | {m['median_latency_ms']:.2f} "
+            f"| {m['p95_latency_ms']:.2f} | {m['zero_results']} "
+            f"| {m['zero_result_rate']:.2%} |\n"
+        )
 
     markdown_content += """
-## Key Findings
-- **Ranking Quality**: Okapi BM25 and Semantic Search yield distinct, complementary advantages. BM25 excels at technical keyword matching, while Semantic Search captures latent conceptual relevance.
-- **Latency Trade-offs**: Inverted index lookups (TF-IDF and BM25) operate with sub-millisecond execution, while dense neural vector inference offers rich semantic matches at low overhead with cached embeddings.
-"""
+    ## Key Findings
+
+    - **Ranking Quality**: Compare the relevance metrics above to understand the strengths of lexical and semantic retrieval.
+    - **Latency**: The table reports measured query latency in milliseconds. Results include the effects of the current runtime, caching, and model initialization strategy; interpret them in that context.
+    - **Zero-result rate**: This is the proportion of benchmark queries that returned no results.
+    """
 
     REPORT_MD_PATH.parent.mkdir(parents=True, exist_ok=True)
     REPORT_MD_PATH.write_text(markdown_content, encoding="utf-8")
