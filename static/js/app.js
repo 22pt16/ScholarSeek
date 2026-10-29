@@ -24,6 +24,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCancelModal = document.getElementById('btnCancelModal');
     const addDocForm = document.getElementById('addDocForm');
 
+    // Evaluation Dashboard Elements
+    const evalModal = document.getElementById('evalModal');
+    const btnOpenEvalModal = document.getElementById('btnOpenEvalModal');
+    const btnCloseEvalModal = document.getElementById('btnCloseEvalModal');
+    const btnCloseEvalModalFooter = document.getElementById('btnCloseEvalModalFooter');
+    const btnRunLiveEval = document.getElementById('btnRunLiveEval');
+    const evalLoadingState = document.getElementById('evalLoadingState');
+    const evalCardsGrid = document.getElementById('evalCardsGrid');
+    const evalTableBody = document.getElementById('evalTableBody');
+    const evalOverlapGrid = document.getElementById('evalOverlapGrid');
+    const evalQueryCount = document.getElementById('evalQueryCount');
+
     // Debounce timer for autocomplete
     let debounceTimer = null;
     let currentPage = 1;
@@ -33,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event Listeners
     btnSearch.addEventListener('click', () => performSearch());
-    
+
     searchInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             hideAutocomplete();
@@ -92,6 +104,28 @@ document.addEventListener('DOMContentLoaded', () => {
     btnOpenModal.addEventListener('click', () => addDocModal.style.display = 'flex');
     btnCloseModal.addEventListener('click', () => addDocModal.style.display = 'none');
     btnCancelModal.addEventListener('click', () => addDocModal.style.display = 'none');
+
+    // Evaluation Modal Events
+    if (btnOpenEvalModal) {
+        btnOpenEvalModal.addEventListener('click', () => {
+            evalModal.style.display = 'flex';
+            loadEvaluationMetrics();
+        });
+    }
+    if (btnCloseEvalModal) {
+        btnCloseEvalModal.addEventListener('click', () => evalModal.style.display = 'none');
+    }
+    if (btnCloseEvalModalFooter) {
+        btnCloseEvalModalFooter.addEventListener('click', () => evalModal.style.display = 'none');
+    }
+    if (evalModal) {
+        evalModal.addEventListener('click', (e) => {
+            if (e.target === evalModal) evalModal.style.display = 'none';
+        });
+    }
+    if (btnRunLiveEval) {
+        btnRunLiveEval.addEventListener('click', () => runLiveEvaluation());
+    }
 
     addDocForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -337,6 +371,223 @@ document.addEventListener('DOMContentLoaded', () => {
             return '#';
         }
     }
+
+    // Evaluation Dashboard Functions
+    async function loadEvaluationMetrics() {
+        if (evalCardsGrid && evalCardsGrid.children.length > 0) return; // already loaded
+        if (evalLoadingState) {
+            evalLoadingState.style.display = 'block';
+            evalLoadingState.querySelector('h4').textContent = 'Loading Benchmark Metrics...';
+            evalLoadingState.querySelector('p').textContent = 'Fetching precalculated IR evaluation reports';
+        }
+
+        try {
+            const res = await fetch('/api/evaluation');
+            const data = await res.json();
+            if (evalLoadingState) evalLoadingState.style.display = 'none';
+            renderEvaluationDashboard(data);
+        } catch (err) {
+            console.error(err);
+            if (evalLoadingState) {
+                evalLoadingState.innerHTML = '<div style="color: #ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> Failed to load evaluation metrics.</div>';
+            }
+        }
+    }
+
+    async function runLiveEvaluation() {
+        if (!btnRunLiveEval) return;
+        btnRunLiveEval.disabled = true;
+        btnRunLiveEval.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Evaluating...';
+        if (evalLoadingState) {
+            evalLoadingState.style.display = 'block';
+            evalLoadingState.querySelector('h4').textContent = 'Running Full IR Evaluation Suite...';
+            evalLoadingState.querySelector('p').textContent = 'Testing queries across TF-IDF, BM25, and Semantic Search against ground truth';
+        }
+
+        try {
+            const res = await fetch('/api/evaluation/run', { method: 'POST' });
+            const data = await res.json();
+            if (evalLoadingState) evalLoadingState.style.display = 'none';
+            renderEvaluationDashboard(data);
+        } catch (err) {
+            console.error(err);
+            alert('Failed to run live evaluation.');
+        } finally {
+            btnRunLiveEval.disabled = false;
+            btnRunLiveEval.innerHTML = '<i class="fa-solid fa-rotate"></i> Run Live Benchmark';
+        }
+    }
+
+    
+    function renderEvaluationDashboard(data) {
+        if (!data || !data.algorithms) return;
+
+        const algorithms = Object.entries(data.algorithms);
+        if (!algorithms.length) return;
+
+        if (evalQueryCount) {
+            evalQueryCount.textContent = data.num_queries ?? 8;
+        }
+
+        const algoMeta = {
+            tfidf: {
+                title: 'TF-IDF',
+                cls: 'algo-tfidf',
+                icon: 'fa-file-lines',
+                tag: 'Vector Space'
+            },
+            bm25: {
+                title: 'Okapi BM25',
+                cls: 'algo-bm25',
+                icon: 'fa-bolt',
+                tag: 'Probabilistic'
+            },
+            semantic: {
+                title: 'Semantic Search',
+                cls: 'algo-semantic',
+                icon: 'fa-brain',
+                tag: 'Neural Dense'
+            }
+        };
+
+        const fmt = (value, digits = 4) => {
+            const number = Number(value);
+            return Number.isFinite(number) ? number.toFixed(digits) : '-';
+        };
+
+        // 1. Focused algorithm summary cards
+        if (evalCardsGrid) {
+            evalCardsGrid.innerHTML = algorithms.map(([algo, m]) => {
+                const meta = algoMeta[algo] || {
+                    title: algo.toUpperCase(),
+                    cls: '',
+                    icon: 'fa-gears',
+                    tag: 'Ranking'
+                };
+
+                return `
+                    <div class="eval-card ${meta.cls}">
+                        <div class="eval-card-header">
+                            <span class="eval-card-title">
+                                <i class="fa-solid ${meta.icon}"></i>
+                                ${meta.title}
+                            </span>
+                            <span class="eval-card-tag">${meta.tag}</span>
+                        </div>
+
+                        <div class="eval-highlight-box">
+                            <div class="highlight-label">
+                                nDCG@10 (Ranking Quality)
+                            </div>
+                            <div class="highlight-value">
+                                ${fmt(m.ndcg_at_10)}
+                            </div>
+                        </div>
+
+                        <div class="eval-metric-rows">
+                            <div class="metric-row">
+                                <span>Precision@5</span>
+                                <span>${fmt(m.p_at_5)}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>Recall@10</span>
+                                <span>${fmt(m.recall_at_10)}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>MRR (First Relevant Result)</span>
+                                <span>${fmt(m.mrr)}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>Median Latency</span>
+                                <span>${fmt(m.median_latency_ms, 2)} ms</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 2. Compact comparison table
+        if (evalTableBody) {
+            evalTableBody.innerHTML = algorithms.map(([algo, m]) => `
+                <tr>
+                    <td><strong>${algo.toUpperCase()}</strong></td>
+                    <td>${fmt(m.p_at_5)}</td>
+                    <td>${fmt(m.recall_at_10)}</td>
+                    <td>${fmt(m.mrr)}</td>
+                    <td>${fmt(m.map_at_10)}</td>
+                    <td>
+                        <strong style="color: var(--primary);">
+                            ${fmt(m.ndcg_at_10)}
+                        </strong>
+                    </td>
+                    <td>${fmt(m.median_latency_ms, 2)} ms</td>
+                </tr>
+            `).join('');
+        }
+
+        // 3. Top-10 Result-Set Similarity
+        if (evalOverlapGrid) {
+            evalOverlapGrid.innerHTML = Object.entries(
+                data.pairwise_overlap || {}
+            ).map(([pair, similarity]) => `
+                <div class="overlap-box">
+                    <div class="overlap-label">${escapeHtml(pair)}</div>
+                    <div class="overlap-pct">
+                        ${(Number(similarity) * 100).toFixed(1)}%
+                    </div>
+                    <div class="overlap-desc">
+                        Top-10 Jaccard Similarity
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 4. Evidence-based takeaways from the current benchmark
+        const insightsContainer = document.getElementById('evalInsights');
+
+        if (insightsContainer) {
+            const bestNdcg = [...algorithms].sort(
+                (a, b) => Number(b[1].ndcg_at_10) -
+                        Number(a[1].ndcg_at_10)
+            )[0];
+
+            const bestMrr = [...algorithms].sort(
+                (a, b) => Number(b[1].mrr) - Number(a[1].mrr)
+            )[0];
+
+            const fastest = [...algorithms].sort(
+                (a, b) => Number(a[1].median_latency_ms) -
+                        Number(b[1].median_latency_ms)
+            )[0];
+
+            const name = algo =>
+                (algoMeta[algo] || { title: algo.toUpperCase() }).title;
+
+            insightsContainer.innerHTML = `
+                <div class="eval-insight-item">
+                    <strong>Best ranking quality</strong>
+                    <span>${name(bestNdcg[0])} — nDCG@10:
+                        ${fmt(bestNdcg[1].ndcg_at_10)}</span>
+                </div>
+                <div class="eval-insight-item">
+                    <strong>Best first relevant result</strong>
+                    <span>${name(bestMrr[0])} — MRR:
+                        ${fmt(bestMrr[1].mrr)}</span>
+                </div>
+                <div class="eval-insight-item">
+                    <strong>Fastest typical response</strong>
+                    <span>${name(fastest[0])} — median:
+                        ${fmt(fastest[1].median_latency_ms, 2)} ms</span>
+                </div>
+                <p class="eval-insight-note">
+                    Results are based on ${Number(data.num_queries ?? 8)}
+                    curated benchmark queries. Latency can vary between runs.
+                </p>
+            `;
+        }
+    }
+
 
     function escapeRegExp(string) {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
