@@ -24,6 +24,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCancelModal = document.getElementById('btnCancelModal');
     const addDocForm = document.getElementById('addDocForm');
 
+    // Evaluation Dashboard Elements
+    const evalModal = document.getElementById('evalModal');
+    const btnOpenEvalModal = document.getElementById('btnOpenEvalModal');
+    const btnCloseEvalModal = document.getElementById('btnCloseEvalModal');
+    const btnCloseEvalModalFooter = document.getElementById('btnCloseEvalModalFooter');
+    const btnRunLiveEval = document.getElementById('btnRunLiveEval');
+    const evalLoadingState = document.getElementById('evalLoadingState');
+    const evalCardsGrid = document.getElementById('evalCardsGrid');
+    const evalTableBody = document.getElementById('evalTableBody');
+    const evalOverlapGrid = document.getElementById('evalOverlapGrid');
+    const evalQueryCount = document.getElementById('evalQueryCount');
+
     // Debounce timer for autocomplete
     let debounceTimer = null;
     let currentPage = 1;
@@ -33,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event Listeners
     btnSearch.addEventListener('click', () => performSearch());
-    
+
     searchInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             hideAutocomplete();
@@ -92,6 +104,28 @@ document.addEventListener('DOMContentLoaded', () => {
     btnOpenModal.addEventListener('click', () => addDocModal.style.display = 'flex');
     btnCloseModal.addEventListener('click', () => addDocModal.style.display = 'none');
     btnCancelModal.addEventListener('click', () => addDocModal.style.display = 'none');
+
+    // Evaluation Modal Events
+    if (btnOpenEvalModal) {
+        btnOpenEvalModal.addEventListener('click', () => {
+            evalModal.style.display = 'flex';
+            loadEvaluationMetrics();
+        });
+    }
+    if (btnCloseEvalModal) {
+        btnCloseEvalModal.addEventListener('click', () => evalModal.style.display = 'none');
+    }
+    if (btnCloseEvalModalFooter) {
+        btnCloseEvalModalFooter.addEventListener('click', () => evalModal.style.display = 'none');
+    }
+    if (evalModal) {
+        evalModal.addEventListener('click', (e) => {
+            if (e.target === evalModal) evalModal.style.display = 'none';
+        });
+    }
+    if (btnRunLiveEval) {
+        btnRunLiveEval.addEventListener('click', () => runLiveEvaluation());
+    }
 
     addDocForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -335,6 +369,164 @@ document.addEventListener('DOMContentLoaded', () => {
             return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '#';
         } catch (_) {
             return '#';
+        }
+    }
+
+    // Evaluation Dashboard Functions
+    async function loadEvaluationMetrics() {
+        if (evalCardsGrid && evalCardsGrid.children.length > 0) return; // already loaded
+        if (evalLoadingState) {
+            evalLoadingState.style.display = 'block';
+            evalLoadingState.querySelector('h4').textContent = 'Loading Benchmark Metrics...';
+            evalLoadingState.querySelector('p').textContent = 'Fetching precalculated IR evaluation reports';
+        }
+
+        try {
+            const res = await fetch('/api/evaluation');
+            const data = await res.json();
+            if (evalLoadingState) evalLoadingState.style.display = 'none';
+            renderEvaluationDashboard(data);
+        } catch (err) {
+            console.error(err);
+            if (evalLoadingState) {
+                evalLoadingState.innerHTML = '<div style="color: #ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> Failed to load evaluation metrics.</div>';
+            }
+        }
+    }
+
+    async function runLiveEvaluation() {
+        if (!btnRunLiveEval) return;
+        btnRunLiveEval.disabled = true;
+        btnRunLiveEval.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Evaluating...';
+        if (evalLoadingState) {
+            evalLoadingState.style.display = 'block';
+            evalLoadingState.querySelector('h4').textContent = 'Running Full IR Evaluation Suite...';
+            evalLoadingState.querySelector('p').textContent = 'Testing queries across TF-IDF, BM25, and Semantic Search against ground truth';
+        }
+
+        try {
+            const res = await fetch('/api/evaluation/run', { method: 'POST' });
+            const data = await res.json();
+            if (evalLoadingState) evalLoadingState.style.display = 'none';
+            renderEvaluationDashboard(data);
+        } catch (err) {
+            console.error(err);
+            alert('Failed to run live evaluation.');
+        } finally {
+            btnRunLiveEval.disabled = false;
+            btnRunLiveEval.innerHTML = '<i class="fa-solid fa-rotate"></i> Run Live Benchmark';
+        }
+    }
+
+    function renderEvaluationDashboard(data) {
+        if (!data || !data.algorithms) return;
+
+        if (evalQueryCount) {
+            evalQueryCount.textContent = data.num_queries || 8;
+        }
+
+        const algoMeta = {
+            tfidf: {
+                title: 'TF-IDF',
+                cls: 'algo-tfidf',
+                icon: 'fa-file-lines',
+                tag: 'Vector Space'
+            },
+            bm25: {
+                title: 'Okapi BM25',
+                cls: 'algo-bm25',
+                icon: 'fa-bolt',
+                tag: 'Probabilistic'
+            },
+            semantic: {
+                title: 'Semantic Search',
+                cls: 'algo-semantic',
+                icon: 'fa-brain',
+                tag: 'Neural Dense'
+            }
+        };
+
+        // Render Comparative Cards Grid
+        if (evalCardsGrid) {
+            evalCardsGrid.innerHTML = Object.entries(data.algorithms).map(([algo, m]) => {
+                const meta = algoMeta[algo] || { title: algo.toUpperCase(), cls: '', icon: 'fa-gears', tag: 'Ranking' };
+                return `
+                    <div class="eval-card ${meta.cls}">
+                        <div class="eval-card-header">
+                            <span class="eval-card-title"><i class="fa-solid ${meta.icon}"></i> ${meta.title}</span>
+                            <span class="eval-card-tag">${meta.tag}</span>
+                        </div>
+                        <div class="eval-highlight-box">
+                            <div class="highlight-label">nDCG@10 (Ranking Quality)</div>
+                            <div class="highlight-value">${m.ndcg_at_10.toFixed(4)}</div>
+                        </div>
+                        <div class="eval-metric-rows">
+                            <div class="metric-row">
+                                <span>Precision@5</span>
+                                <span>${m.p_at_5.toFixed(4)}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>Precision@10</span>
+                                <span>${m.p_at_10.toFixed(4)}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>Recall@10</span>
+                                <span>${m.recall_at_10.toFixed(4)}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>MRR (First Hit)</span>
+                                <span>${m.mrr.toFixed(4)}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>MAP@10</span>
+                                <span>${m.map_at_10.toFixed(4)}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>Median Latency</span>
+                                <span>${m.median_latency_ms.toFixed(2)} ms</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>P95 Latency</span>
+                                <span>${m.p95_latency_ms.toFixed(2)} ms</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>Zero-Result Rate</span>
+                                <span>${m.zero_result_rate.toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render Full Table Body
+        if (evalTableBody) {
+            evalTableBody.innerHTML = Object.entries(data.algorithms).map(([algo, m]) => `
+                <tr>
+                    <td><strong>${algo.toUpperCase()}</strong></td>
+                    <td>${m.p_at_5.toFixed(4)}</td>
+                    <td>${m.p_at_10.toFixed(4)}</td>
+                    <td>${m.recall_at_10.toFixed(4)}</td>
+                    <td>${m.mrr.toFixed(4)}</td>
+                    <td>${m.map_at_10.toFixed(4)}</td>
+                    <td>${m.ndcg_at_5 ? m.ndcg_at_5.toFixed(4) : '-'}</td>
+                    <td><strong style="color: var(--primary);">${m.ndcg_at_10.toFixed(4)}</strong></td>
+                    <td>${m.median_latency_ms.toFixed(2)} ms</td>
+                    <td>${m.p95_latency_ms.toFixed(2)} ms</td>
+                    <td>${m.zero_result_rate.toFixed(1)}%</td>
+                </tr>
+            `).join('');
+        }
+
+        // Render Pairwise Overlaps
+        if (evalOverlapGrid) {
+            evalOverlapGrid.innerHTML = Object.entries(data.pairwise_overlap || {}).map(([pair, sim]) => `
+                <div class="overlap-box">
+                    <div class="overlap-label">${escapeHtml(pair)}</div>
+                    <div class="overlap-pct">${(sim * 100).toFixed(1)}%</div>
+                    <div class="overlap-desc">Top 10 Jaccard Rank Overlap</div>
+                </div>
+            `).join('');
         }
     }
 

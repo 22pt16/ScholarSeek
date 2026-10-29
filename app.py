@@ -78,6 +78,28 @@ def api_add_document():
         "stats": engine.get_stats()
     }), 201
 
+@app.route("/api/evaluation", methods=["GET"])
+def api_get_evaluation():
+    from pathlib import Path
+    import json
+    report_file = Path(__file__).resolve().parent / "evaluation" / "evaluation_report.json"
+    if report_file.exists():
+        try:
+            with report_file.open("r", encoding="utf-8") as f:
+                return jsonify(json.load(f))
+        except Exception:
+            pass
+
+    from evaluate_ir import evaluate_engine
+    data = evaluate_engine(engine=engine, print_output=False)
+    return jsonify(data)
+
+@app.route("/api/evaluation/run", methods=["POST"])
+def api_run_evaluation():
+    from evaluate_ir import evaluate_engine
+    data = evaluate_engine(engine=engine, print_output=False)
+    return jsonify(data)
+
 if __name__ == "__main__":
     print("🚀 Starting Mini Search Engine Web Server on http://127.0.0.1:5000 ...")
     app.run(debug=True, port=5000, use_reloader=False)

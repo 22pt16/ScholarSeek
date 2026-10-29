@@ -30,9 +30,14 @@
                 <span class="pill"><i class="fa-solid fa-gauge-high"></i> <strong id="statAvgLen">0</strong> Avg Words</span>
             </div>
 
-            <button class="btn-primary" id="btnOpenModal">
-                <i class="fa-solid fa-plus"></i> Add Document
-            </button>
+            <div class="nav-buttons">
+                <button class="btn-secondary" id="btnOpenEvalModal">
+                    <i class="fa-solid fa-chart-line"></i> IR Evaluation
+                </button>
+                <button class="btn-primary" id="btnOpenModal">
+                    <i class="fa-solid fa-plus"></i> Add Document
+                </button>
+            </div>
         </header>
 
         <!-- Hero & Search Section -->
@@ -130,6 +135,81 @@
                     <button type="submit" class="btn-primary"><i class="fa-solid fa-gears"></i> Index Document</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal for IR Evaluation & Metrics Dashboard -->
+    <div class="modal-overlay" id="evalModal" style="display: none;">
+        <div class="modal-card eval-modal-card">
+            <div class="modal-header">
+                <div>
+                    <h3><i class="fa-solid fa-chart-pie"></i> Information Retrieval Benchmark & Evaluation</h3>
+                    <p class="modal-subtitle">Comparative evaluation across TF-IDF, Okapi BM25, and Deep Semantic Search on the 20,000-paper corpus</p>
+                </div>
+                <button class="modal-close" id="btnCloseEvalModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="eval-modal-body">
+                <div class="eval-toolbar">
+                    <div class="eval-query-badge">
+                        <i class="fa-solid fa-database"></i> <span id="evalQueryCount">8</span> Curated Benchmark Queries
+                    </div>
+                    <button class="btn-primary btn-run-eval" id="btnRunLiveEval">
+                        <i class="fa-solid fa-rotate"></i> Run Live Benchmark
+                    </button>
+                </div>
+
+                <!-- Live Evaluation Spinner Overlay (hidden by default) -->
+                <div class="eval-loading-state" id="evalLoadingState" style="display: none;">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i>
+                    <h4>Running IR Evaluation Suite...</h4>
+                    <p>Executing benchmark queries across TF-IDF, Okapi BM25, and Semantic Search</p>
+                </div>
+
+                <!-- Algorithm Comparative Cards -->
+                <div class="eval-cards-grid" id="evalCardsGrid">
+                    <!-- Populated dynamically by app.js -->
+                </div>
+
+                <!-- Comparison Table -->
+                <div class="eval-section">
+                    <h4 class="eval-section-title"><i class="fa-solid fa-table-list"></i> Full Metrics Comparison</h4>
+                    <div class="eval-table-wrapper">
+                        <table class="eval-table" id="evalTable">
+                            <thead>
+                                <tr>
+                                    <th>Algorithm</th>
+                                    <th>P@5</th>
+                                    <th>P@10</th>
+                                    <th>Recall@10</th>
+                                    <th>MRR</th>
+                                    <th>MAP@10</th>
+                                    <th>nDCG@5</th>
+                                    <th>nDCG@10</th>
+                                    <th>Median ms</th>
+                                    <th>P95 ms</th>
+                                    <th>Zero-Hit %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="evalTableBody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Overlap Section -->
+                <div class="eval-section">
+                    <h4 class="eval-section-title"><i class="fa-solid fa-diagram-project"></i> Pairwise Rank Overlap (Top 10 Jaccard Similarity)</h4>
+                    <div class="eval-overlap-grid" id="evalOverlapGrid">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="btnCloseEvalModalFooter">Close</button>
+            </div>
         </div>
     </div>
 
